@@ -24,17 +24,30 @@ app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 app.get('/sse', async (req, res) => {
   try {
     const agentId = req.headers['x-agent-id'] as string;
-    if (!agentId) return res.status(400).json({ error: 'x-agent-id required' });
     
-    const credentials = await getMoodleCredentials(agentId);
-    if (!credentials) return res.status(404).json({ error: 'Agent not found' });
+    let config: MoodleConfig;
+    if (agentId) {
+      const credentials = await getMoodleCredentials(agentId);
+      if (!credentials) return res.status(404).json({ error: 'Agent not found' });
+      config = {
+        apiUrl: credentials.moodle_api_url,
+        apiToken: credentials.moodle_api_token,
+        courseId: credentials.moodle_course_id,
+      };
+    } else {
+      // Fallback для discovery - используем env переменные
+      if (!process.env.MOODLE_API_URL || !process.env.MOODLE_API_TOKEN || !process.env.MOODLE_COURSE_ID) {
+        return res.status(400).json({ error: 'x-agent-id required or set MOODLE_* env vars' });
+      }
+      config = {
+        apiUrl: process.env.MOODLE_API_URL,
+        apiToken: process.env.MOODLE_API_TOKEN,
+        courseId: process.env.MOODLE_COURSE_ID,
+      };
+    }
     
     const transport = new SSEServerTransport('/message', res);
-    const server = new MoodleMcpServer({
-      apiUrl: credentials.moodle_api_url,
-      apiToken: credentials.moodle_api_token,
-      courseId: credentials.moodle_course_id,
-    });
+    const server = new MoodleMcpServer(config);
     
     await server.server.connect(transport);
     sessions.set(transport.sessionId, { transport, server });
