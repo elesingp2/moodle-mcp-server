@@ -14,17 +14,24 @@ let pool: Pool | null = null;
 export async function initDB(databaseUrl: string) {
   if (!databaseUrl) return;
   
-  pool = new Pool({ connectionString: databaseUrl });
+  pool = new Pool({ 
+    connectionString: databaseUrl,
+    connectionTimeoutMillis: 10000,
+  });
   
-  try {
-    const schema = readFileSync(
-      join(dirname(fileURLToPath(import.meta.url)), '..', 'db', 'schema.sql'),
-      'utf-8'
-    );
-    await pool.query(schema);
-  } catch (error: any) {
-    if (!error.message?.includes('already exists')) {
-      console.error('DB init error:', error.message);
+  for (let i = 0; i < 3; i++) {
+    try {
+      await pool.query('SELECT 1');
+      const schema = readFileSync(
+        join(dirname(fileURLToPath(import.meta.url)), '..', 'db', 'schema.sql'),
+        'utf-8'
+      );
+      await pool.query(schema);
+      return;
+    } catch (error: any) {
+      if (error.message?.includes('already exists')) return;
+      if (i === 2) console.error('DB init failed:', error.message);
+      await new Promise(r => setTimeout(r, 1000 * (i + 1)));
     }
   }
 }
