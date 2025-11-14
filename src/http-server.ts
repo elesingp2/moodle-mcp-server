@@ -31,7 +31,6 @@ app.get('/sse', async (req, res) => {
     const transport = new SSEServerTransport('/message', res);
     const moodleServer = new MoodleMcpServer();
     
-    await transport.start();
     await moodleServer.server.connect(transport);
     
     sessions.set(transport.sessionId, { transport, server: moodleServer });
