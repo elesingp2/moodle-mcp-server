@@ -24,6 +24,20 @@ app.use((req, res, next) => {
   express.json()(req, res, next);
 });
 
+// Логирование всех входящих запросов
+app.use((req, res, next) => {
+  const timestamp = new Date().toISOString();
+  console.log(`\n🌐 [${timestamp}] ${req.method} ${req.path}`);
+  console.log('  Headers:', JSON.stringify(req.headers, null, 2));
+  if (Object.keys(req.query).length > 0) {
+    console.log('  Query:', JSON.stringify(req.query, null, 2));
+  }
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log('  Body:', JSON.stringify(req.body, null, 2));
+  }
+  next();
+});
+
 const sessions = new Map<string, { transport: SSEServerTransport; server: MoodleMcpServer }>();
 
 app.get('/health', (_req, res) => {
