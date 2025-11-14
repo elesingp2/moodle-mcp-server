@@ -87,8 +87,8 @@ interface QuizGradeResponse {
   grade?: string;  // Este campo solo está presente si hasgrade es true
 }
 
-class MoodleMcpServer {
-  private server: Server;
+export class MoodleMcpServer {
+  public server: Server;
   private axiosInstance;
 
   constructor() {
