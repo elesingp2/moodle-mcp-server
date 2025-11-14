@@ -3,9 +3,16 @@ import 'dotenv/config';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import express from 'express';
 import cors from 'cors';
-import { MoodleMcpServer } from './index.js';
+import { MoodleMcpServer, MoodleConfig } from './index.js';
+import { initDB, getMoodleCredentials } from './db.js';
 
 const PORT = process.env.PORT || 8080;
+const DATABASE_URL = process.env.DATABASE_URL;
+
+
+// Инициализируем БД
+initDB(DATABASE_URL || '');
+
 const app = express();
 
 // CORS для Letta
@@ -46,10 +53,34 @@ app.get('/health', (_req, res) => {
 
 app.get('/sse', async (req, res) => {
   try {
+    const agentId = req.headers['x-agent-id'] as string;
     console.log('New SSE connection request from:', req.headers['user-agent']);
+    console.log('Agent ID:', agentId || 'NOT PROVIDED');
+    
+    if (!agentId) {
+      res.status(400).json({ error: 'x-agent-id header is required' });
+      return;
+    }
+    
+    // Получаем креденшалы из БД
+    const credentials = await getMoodleCredentials(agentId);
+    
+    if (!credentials) {
+      console.error('❌ No Moodle credentials found for agent:', agentId);
+      res.status(404).json({ error: 'Agent not found in database' });
+      return;
+    }
+    
+    console.log('✅ Found credentials for agent:', agentId);
+    
+    const config: MoodleConfig = {
+      apiUrl: credentials.moodle_api_url,
+      apiToken: credentials.moodle_api_token,
+      courseId: credentials.moodle_course_id,
+    };
     
     const transport = new SSEServerTransport('/message', res);
-    const moodleServer = new MoodleMcpServer();
+    const moodleServer = new MoodleMcpServer(config);
     
     await moodleServer.server.connect(transport);
     

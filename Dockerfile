@@ -12,12 +12,19 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# Устанавливаем PostgreSQL клиент для скриптов
+RUN apk add --no-cache postgresql-client
+
 COPY package*.json ./
 RUN npm ci --only=production --ignore-scripts
 
 COPY --from=builder /app/build ./build
+COPY db ./db
+COPY docker-entrypoint.sh ./
 
-EXPOSE 3000
+RUN chmod +x docker-entrypoint.sh
 
-CMD ["node", "build/index.js"]
+EXPOSE 8080
+
+ENTRYPOINT ["./docker-entrypoint.sh"]
 

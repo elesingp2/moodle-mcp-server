@@ -9,24 +9,6 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import axios from 'axios';
 
-// Configuración de variables de entorno
-const MOODLE_API_URL = process.env.MOODLE_API_URL;
-const MOODLE_API_TOKEN = process.env.MOODLE_API_TOKEN;
-const MOODLE_COURSE_ID = process.env.MOODLE_COURSE_ID;
-
-// Verificar que las variables de entorno estén definidas
-if (!MOODLE_API_URL) {
-  throw new Error('MOODLE_API_URL environment variable is required');
-}
-
-if (!MOODLE_API_TOKEN) {
-  throw new Error('MOODLE_API_TOKEN environment variable is required');
-}
-
-if (!MOODLE_COURSE_ID) {
-  throw new Error('MOODLE_COURSE_ID environment variable is required');
-}
-
 // Interfaces para los tipos de datos
 interface Student {
   id: number;
@@ -87,11 +69,20 @@ interface QuizGradeResponse {
   grade?: string;  // Este campo solo está presente si hasgrade es true
 }
 
+export interface MoodleConfig {
+  apiUrl: string;
+  apiToken: string;
+  courseId: string;
+}
+
 export class MoodleMcpServer {
   public server: Server;
   private axiosInstance;
+  private courseId: string;
 
-  constructor() {
+  constructor(config: MoodleConfig) {
+    this.courseId = config.courseId;
+    
     this.server = new Server(
       {
         name: 'moodle-mcp-server',
@@ -105,9 +96,9 @@ export class MoodleMcpServer {
     );
 
     this.axiosInstance = axios.create({
-      baseURL: MOODLE_API_URL,
+      baseURL: config.apiUrl,
       params: {
-        wstoken: MOODLE_API_TOKEN,
+        wstoken: config.apiToken,
         moodlewsrestformat: 'json',
       },
     });
@@ -286,7 +277,7 @@ export class MoodleMcpServer {
     const response = await this.axiosInstance.get('', {
       params: {
         wsfunction: 'core_enrol_get_enrolled_users',
-        courseid: MOODLE_COURSE_ID,
+        courseid: this.courseId,
       },
     });
 
@@ -316,7 +307,7 @@ export class MoodleMcpServer {
     const response = await this.axiosInstance.get('', {
       params: {
         wsfunction: 'mod_assign_get_assignments',
-        courseids: [MOODLE_COURSE_ID],
+        courseids: [this.courseId],
       },
     });
 
@@ -338,7 +329,7 @@ export class MoodleMcpServer {
     const response = await this.axiosInstance.get('', {
       params: {
         wsfunction: 'mod_quiz_get_quizzes_by_courses',
-        courseids: [MOODLE_COURSE_ID],
+        courseids: [this.courseId],
       },
     });
 
@@ -364,7 +355,7 @@ export class MoodleMcpServer {
     const assignmentsResponse = await this.axiosInstance.get('', {
       params: {
         wsfunction: 'mod_assign_get_assignments',
-        courseids: [MOODLE_COURSE_ID],
+        courseids: [this.courseId],
       },
     });
 
@@ -642,8 +633,20 @@ export class MoodleMcpServer {
   }
 }
 
-// Запускаем только если это главный модуль
+// Запускаем только если это главный модуль (для STDIO режима)
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const server = new MoodleMcpServer();
+  // Для STDIO режима читаем из env (legacy режим)
+  const config: MoodleConfig = {
+    apiUrl: process.env.MOODLE_API_URL || '',
+    apiToken: process.env.MOODLE_API_TOKEN || '',
+    courseId: process.env.MOODLE_COURSE_ID || '',
+  };
+  
+  if (!config.apiUrl || !config.apiToken || !config.courseId) {
+    console.error('ERROR: MOODLE_API_URL, MOODLE_API_TOKEN, and MOODLE_COURSE_ID are required');
+    process.exit(1);
+  }
+  
+  const server = new MoodleMcpServer(config);
   server.run().catch(console.error);
 }
