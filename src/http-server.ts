@@ -7,8 +7,24 @@ import { MoodleMcpServer, MoodleConfig } from './index.js';
 import { initDB, getMoodleCredentials } from './db.js';
 
 const PORT = process.env.PORT || 8080;
-const DATABASE_URL = process.env.DATABASE_URL;
 
+// Собираем DATABASE_URL из компонентов Railway или используем готовый
+let DATABASE_URL = process.env.DATABASE_URL;
+
+if (!DATABASE_URL && process.env.POSTGRES_HOST) {
+  const host = process.env.POSTGRES_HOST;
+  const port = process.env.POSTGRES_PORT || '5432';
+  const user = process.env.POSTGRES_USER;
+  const password = process.env.POSTGRES_PASSWORD;
+  const db = process.env.POSTGRES_DB || 'railway';
+  
+  DATABASE_URL = `postgresql://${user}:${password}@${host}:${port}/${db}`;
+  console.log('📊 Built DATABASE_URL from Railway components');
+}
+
+console.log('🔧 Environment:');
+console.log('  PORT:', PORT);
+console.log('  DATABASE_URL:', DATABASE_URL ? `${DATABASE_URL.substring(0, 30)}...` : 'NOT SET');
 
 // Инициализируем БД
 initDB(DATABASE_URL || '');
