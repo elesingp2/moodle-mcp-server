@@ -2,10 +2,19 @@
 import 'dotenv/config';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import express from 'express';
+import cors from 'cors';
 import { MoodleMcpServer } from './index.js';
 
 const PORT = process.env.PORT || 8080;
 const app = express();
+
+// CORS для Letta
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Accept', 'Authorization'],
+  credentials: false
+}));
 
 app.use(express.json());
 
@@ -17,6 +26,8 @@ app.get('/health', (_req, res) => {
 
 app.get('/sse', async (req, res) => {
   try {
+    console.log('New SSE connection request from:', req.headers['user-agent']);
+    
     const transport = new SSEServerTransport('/message', res);
     const moodleServer = new MoodleMcpServer();
     
@@ -25,20 +36,24 @@ app.get('/sse', async (req, res) => {
     
     sessions.set(transport.sessionId, { transport, server: moodleServer });
     
-    console.log('SSE client connected:', transport.sessionId);
+    console.log('✅ SSE client connected. Session ID:', transport.sessionId);
+    console.log('Active sessions:', sessions.size);
     
     transport.onclose = () => {
       sessions.delete(transport.sessionId);
-      console.log('SSE client disconnected:', transport.sessionId);
+      console.log('❌ SSE client disconnected:', transport.sessionId);
+      console.log('Active sessions:', sessions.size);
     };
     
     transport.onerror = (error) => {
-      console.error('SSE transport error:', error);
+      console.error('⚠️  SSE transport error:', error);
       sessions.delete(transport.sessionId);
     };
   } catch (error) {
-    console.error('Error setting up SSE:', error);
-    res.status(500).json({ error: 'Failed to establish SSE connection' });
+    console.error('❌ Error setting up SSE:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to establish SSE connection' });
+    }
   }
 });
 
