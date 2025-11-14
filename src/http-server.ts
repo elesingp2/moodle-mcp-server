@@ -26,9 +26,6 @@ console.log('🔧 Environment:');
 console.log('  PORT:', PORT);
 console.log('  DATABASE_URL:', DATABASE_URL ? `${DATABASE_URL.substring(0, 30)}...` : 'NOT SET');
 
-// Инициализируем БД
-initDB(DATABASE_URL || '');
-
 const app = express();
 
 // CORS для Letta
@@ -154,6 +151,9 @@ app.post('/message', async (req, res) => {
   console.log('✅ Routing to session:', sessionId);
   await session.transport.handlePostMessage(req, res);
 });
+
+// Инициализируем БД перед запуском сервера
+await initDB(DATABASE_URL || '');
 
 app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`Moodle MCP HTTP server running on port ${PORT}`);

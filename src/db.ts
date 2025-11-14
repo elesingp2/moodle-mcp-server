@@ -1,4 +1,7 @@
 import { Pool } from 'pg';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
 export interface MoodleCredentials {
   moodle_api_url: string;
@@ -8,7 +11,7 @@ export interface MoodleCredentials {
 
 let pool: Pool | null = null;
 
-export function initDB(databaseUrl: string) {
+export async function initDB(databaseUrl: string) {
   if (!databaseUrl) {
     console.warn('⚠️  DATABASE_URL not provided, running without database');
     return;
@@ -16,6 +19,22 @@ export function initDB(databaseUrl: string) {
   
   pool = new Pool({ connectionString: databaseUrl });
   console.log('✅ Database pool initialized');
+  
+  // Автоинициализация схемы
+  try {
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const schemaPath = join(__dirname, '..', 'db', 'schema.sql');
+    const schema = readFileSync(schemaPath, 'utf-8');
+    
+    await pool.query(schema);
+    console.log('✅ Database schema initialized');
+  } catch (error: any) {
+    if (error.message?.includes('already exists')) {
+      console.log('✅ Database schema already exists');
+    } else {
+      console.error('⚠️  Failed to initialize schema:', error.message);
+    }
+  }
 }
 
 export async function getMoodleCredentials(agentId: string): Promise<MoodleCredentials | null> {
