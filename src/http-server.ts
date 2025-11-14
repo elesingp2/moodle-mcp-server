@@ -58,14 +58,34 @@ app.get('/sse', async (req, res) => {
 });
 
 app.post('/message', async (req, res) => {
-  const sessionId = req.query.sessionId as string;
+  let sessionId = req.query.sessionId as string;
+  
+  console.log('📬 POST /message');
+  console.log('  Query sessionId:', sessionId || 'NOT PROVIDED');
+  console.log('  Full query:', req.query);
+  console.log('  Active sessions:', Array.from(sessions.keys()));
+  console.log('  User-Agent:', req.headers['user-agent']);
+  
+  // Fallback: если sessionId не передан, используем единственную активную сессию
+  if (!sessionId && sessions.size === 1) {
+    sessionId = Array.from(sessions.keys())[0];
+    console.log('⚠️  SessionId missing, using single active session:', sessionId);
+  }
+  
   const session = sessions.get(sessionId);
   
   if (!session) {
-    res.status(404).json({ error: 'Session not found' });
+    console.error('❌ Session not found. Requested:', sessionId);
+    res.status(404).json({ 
+      error: 'Session not found',
+      sessionId: sessionId || null,
+      activeSessions: Array.from(sessions.keys()),
+      hint: 'Client should include sessionId in query: /message?sessionId=XXX'
+    });
     return;
   }
   
+  console.log('✅ Routing to session:', sessionId);
   await session.transport.handlePostMessage(req, res);
 });
 
