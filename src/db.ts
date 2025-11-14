@@ -12,58 +12,35 @@ export interface MoodleCredentials {
 let pool: Pool | null = null;
 
 export async function initDB(databaseUrl: string) {
-  if (!databaseUrl) {
-    console.warn('⚠️  DATABASE_URL not provided, running without database');
-    return;
-  }
+  if (!databaseUrl) return;
   
   pool = new Pool({ connectionString: databaseUrl });
-  console.log('✅ Database pool initialized');
   
-  // Автоинициализация схемы
   try {
-    const __dirname = dirname(fileURLToPath(import.meta.url));
-    const schemaPath = join(__dirname, '..', 'db', 'schema.sql');
-    const schema = readFileSync(schemaPath, 'utf-8');
-    
+    const schema = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), '..', 'db', 'schema.sql'),
+      'utf-8'
+    );
     await pool.query(schema);
-    console.log('✅ Database schema initialized');
   } catch (error: any) {
-    if (error.message?.includes('already exists')) {
-      console.log('✅ Database schema already exists');
-    } else {
-      console.error('⚠️  Failed to initialize schema:', error.message);
+    if (!error.message?.includes('already exists')) {
+      console.error('DB init error:', error.message);
     }
   }
 }
 
 export async function getMoodleCredentials(agentId: string): Promise<MoodleCredentials | null> {
-  if (!pool) {
-    console.warn('⚠️  Database not initialized');
-    return null;
-  }
-
+  if (!pool) return null;
+  
   try {
-    const result = await pool.query(
+    const { rows } = await pool.query(
       'SELECT moodle_api_url, moodle_api_token, moodle_course_id FROM moodle_users WHERE agent_id = $1',
       [agentId]
     );
-
-    if (result.rows.length === 0) {
-      return null;
-    }
-
-    return result.rows[0];
+    return rows[0] || null;
   } catch (error) {
-    console.error('Database query error:', error);
+    console.error('DB query error:', error);
     return null;
-  }
-}
-
-export async function closeDB() {
-  if (pool) {
-    await pool.end();
-    console.log('✅ Database connection closed');
   }
 }
 
