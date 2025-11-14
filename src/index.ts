@@ -642,5 +642,8 @@ export class MoodleMcpServer {
   }
 }
 
-const server = new MoodleMcpServer();
-server.run().catch(console.error);
+// Запускаем только если это главный модуль
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const server = new MoodleMcpServer();
+  server.run().catch(console.error);
+}

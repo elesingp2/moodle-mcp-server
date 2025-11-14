@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import 'dotenv/config';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import express from 'express';
 import { MoodleMcpServer } from './index.js';
@@ -15,20 +16,30 @@ app.get('/health', (_req, res) => {
 });
 
 app.get('/sse', async (req, res) => {
-  const transport = new SSEServerTransport('/message', res);
-  const moodleServer = new MoodleMcpServer();
-  
-  await transport.start();
-  await moodleServer.server.connect(transport);
-  
-  sessions.set(transport.sessionId, { transport, server: moodleServer });
-  
-  console.log('SSE client connected:', transport.sessionId);
-  
-  transport.onclose = () => {
-    sessions.delete(transport.sessionId);
-    console.log('SSE client disconnected:', transport.sessionId);
-  };
+  try {
+    const transport = new SSEServerTransport('/message', res);
+    const moodleServer = new MoodleMcpServer();
+    
+    await transport.start();
+    await moodleServer.server.connect(transport);
+    
+    sessions.set(transport.sessionId, { transport, server: moodleServer });
+    
+    console.log('SSE client connected:', transport.sessionId);
+    
+    transport.onclose = () => {
+      sessions.delete(transport.sessionId);
+      console.log('SSE client disconnected:', transport.sessionId);
+    };
+    
+    transport.onerror = (error) => {
+      console.error('SSE transport error:', error);
+      sessions.delete(transport.sessionId);
+    };
+  } catch (error) {
+    console.error('Error setting up SSE:', error);
+    res.status(500).json({ error: 'Failed to establish SSE connection' });
+  }
 });
 
 app.post('/message', async (req, res) => {
@@ -43,9 +54,9 @@ app.post('/message', async (req, res) => {
   await session.transport.handlePostMessage(req, res);
 });
 
-app.listen(PORT, () => {
+app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`Moodle MCP HTTP server running on port ${PORT}`);
-  console.log(`Health: http://localhost:${PORT}/health`);
-  console.log(`SSE endpoint: http://localhost:${PORT}/sse`);
+  console.log(`Health check available at /health`);
+  console.log(`SSE endpoint available at /sse`);
 });
 
