@@ -16,7 +16,13 @@ app.use(cors({
   credentials: false
 }));
 
-app.use(express.json());
+// НЕ используем express.json() для /message - MCP SDK сам читает body
+app.use((req, res, next) => {
+  if (req.path === '/message') {
+    return next();
+  }
+  express.json()(req, res, next);
+});
 
 const sessions = new Map<string, { transport: SSEServerTransport; server: MoodleMcpServer }>();
 
